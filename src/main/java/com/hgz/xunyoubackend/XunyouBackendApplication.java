@@ -5,7 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@MapperScan("org.hgz.xunyoubackend.mapper")
+@MapperScan("com.hgz.xunyoubackend.mapper")
 public class XunyouBackendApplication {
 
     public static void main(String[] args) {

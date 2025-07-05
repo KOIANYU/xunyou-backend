@@ -1,4 +1,5 @@
 package com.hgz.xunyoubackend.service.impl;
+import java.util.Date;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -11,6 +12,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,6 +30,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     private static final String SALT = "KOIAN";
 
+    /**
+     * 用户登录态键
+     */
+    private static final String USER_LOGIN_STATE = "userLoginState";
+
+    /**
+     * 用户注册
+     * @param userAccount 用户账户
+     * @param userPassword 用户密码
+     * @param checkPassword 校验密码
+     * @return
+     */
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
         // 1. 校验
@@ -73,8 +87,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return user.getId();
     }
 
+    /**
+     * 用户登录
+     * @param userAccount  用户账户
+     * @param userPassword 用户密码
+     * @param request 用户登录状态
+     * @return
+     */
     @Override
-    public User userLogin(String userAccount, String userPassword) {
+    public User userLogin(String userAccount, String userPassword, HttpServletRequest request) {
         // 1. 校验
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
             return null;
@@ -98,7 +119,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 查询账户是否存在
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userAccount", userAccount);
-        queryWrapper.eq("userAccount", md5Password);
+        queryWrapper.eq("userPassword", md5Password);
         User user = this.getOne(queryWrapper);
         // 用户不存在
         if (user == null) {
@@ -106,10 +127,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             return null;
         }
 
-        // 记录用户登录状态
-        
+        // 3. 用户脱敏
+        User safeUser = new User();
+        safeUser.setId(user.getId());
+        safeUser.setUsername(user.getUsername());
+        safeUser.setUserAccount(user.getUserAccount());
+        safeUser.setAvatarUrl(user.getAvatarUrl());
+        safeUser.setGender(user.getGender());
+        safeUser.setPhone(user.getPhone());
+        safeUser.setEmail(user.getEmail());
+        safeUser.setUserStatus(user.getUserStatus());
+        safeUser.setCreateTime(user.getCreateTime());
 
-        return user;
+        // 4. 记录用户登录状态
+        request.getSession().setAttribute(USER_LOGIN_STATE, safeUser);
+
+        return safeUser;
     }
 
     /**

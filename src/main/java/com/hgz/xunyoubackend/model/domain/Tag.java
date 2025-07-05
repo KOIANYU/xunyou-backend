@@ -3,6 +3,7 @@ package com.hgz.xunyoubackend.model.domain;
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.Date;
 
 /**
@@ -11,7 +12,7 @@ import java.util.Date;
  */
 @TableName(value ="tag")
 @Data
-public class Tag {
+public class Tag implements Serializable{
     /**
      * id
      */
@@ -55,5 +56,7 @@ public class Tag {
     private Integer isDelete;
 
     @TableField(exist = false)
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 65322973478559431L;
+
+
 }

@@ -1,11 +1,9 @@
 package com.hgz.xunyoubackend.model.domain;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.Date;
 
 /**
@@ -14,7 +12,7 @@ import java.util.Date;
  */
 @TableName(value ="user")
 @Data
-public class User {
+public class User implements Serializable{
     /**
      * id
      */
@@ -74,6 +72,7 @@ public class User {
     /**
      * 是否删除
      */
+    @TableLogic
     private Integer isDelete;
 
     /**
@@ -92,5 +91,6 @@ public class User {
     private String tags;
 
     @TableField(exist = false)
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = -4502379040021855906L;
+
 }

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.hgz.xunyoubackend.model.domain.Tag;
 import com.hgz.xunyoubackend.model.domain.User;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**
@@ -23,11 +24,13 @@ public interface UserService extends IService<User> {
 
     /**
      * 用户登录
-     * @param userAccount 用户账户
+     *
+     * @param userAccount  用户账户
      * @param userPassword 用户密码
+     * @param request 用户登录状态
      * @return 脱敏后的用户信息
      */
-    User userLogin(String userAccount, String userPassword);
+    User userLogin(String userAccount, String userPassword, HttpServletRequest request);
 
     /**
      * 根据标签搜索用户

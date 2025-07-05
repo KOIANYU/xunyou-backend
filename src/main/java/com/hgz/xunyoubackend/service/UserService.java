@@ -1,7 +1,10 @@
 package com.hgz.xunyoubackend.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.hgz.xunyoubackend.model.domain.Tag;
 import com.hgz.xunyoubackend.model.domain.User;
+
+import java.util.List;
 
 /**
 * @author 32438
@@ -10,4 +13,10 @@ import com.hgz.xunyoubackend.model.domain.User;
 */
 public interface UserService extends IService<User> {
 
+    /**
+     * 根据标签搜索用户
+     * @param tagList
+     * @return
+     */
+    List<User> searchUserByTags(List<Tag> tagList);
 }

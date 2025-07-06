@@ -1,8 +1,11 @@
 package com.hgz.xunyoubackend.service.impl;
+import java.util.Collections;
 import java.util.Date;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hgz.xunyoubackend.constant.UserConstant;
+import com.hgz.xunyoubackend.controller.UserController;
 import com.hgz.xunyoubackend.model.domain.Tag;
 import com.hgz.xunyoubackend.model.domain.User;
 import com.hgz.xunyoubackend.mapper.UserMapper;
@@ -16,6 +19,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
 * @author hgz
@@ -30,10 +34,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     private static final String SALT = "KOIAN";
 
-    /**
-     * 用户登录态键
-     */
-    private static final String USER_LOGIN_STATE = "userLoginState";
 
     /**
      * 用户注册
@@ -128,6 +128,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
 
         // 3. 用户脱敏
+        User safeUser = getSafeUser(user);
+
+        // 4. 记录用户登录状态
+        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, safeUser);
+
+        return safeUser;
+    }
+
+    /**
+     * 用户信息脱敏
+     *
+     * @param user
+     * @return
+     */
+    @Override
+    public User getSafeUser(User user) {
+        if (user == null) {
+            return null;
+        }
         User safeUser = new User();
         safeUser.setId(user.getId());
         safeUser.setUsername(user.getUsername());
@@ -138,11 +157,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         safeUser.setEmail(user.getEmail());
         safeUser.setUserStatus(user.getUserStatus());
         safeUser.setCreateTime(user.getCreateTime());
-
-        // 4. 记录用户登录状态
-        request.getSession().setAttribute(USER_LOGIN_STATE, safeUser);
-
+        safeUser.setUserRole(user.getUserRole());
         return safeUser;
+    }
+
+    /**
+     * 查询用户信息
+     *
+     * @param username
+     * @return
+     */
+    @Override
+    public List<User> searchUsers(String username) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        if (StringUtils.isNotBlank( username)) {
+            queryWrapper.like("username", username);
+        }
+        List<User> userList = this.list(queryWrapper);
+        return userList.stream().map(user -> getSafeUser(user)).collect(Collectors.toList());
     }
 
     /**

@@ -13,8 +13,11 @@ import java.util.List;
 */
 public interface UserService extends IService<User> {
 
+
+
     /**
      * 用户注册
+     *
      * @param userAccount 用户账户
      * @param userPassword 用户密码
      * @param checkPassword 校验密码
@@ -33,9 +36,27 @@ public interface UserService extends IService<User> {
     User userLogin(String userAccount, String userPassword, HttpServletRequest request);
 
     /**
+     * 用户信息脱敏
+     *
+     * @param user
+     * @return
+     */
+    User getSafeUser(User user);
+
+    /**
+     * 查询用户信息
+     *
+     * @param username
+     * @return
+     */
+    List<User> searchUsers(String username);
+
+    /**
      * 根据标签搜索用户
+     *
      * @param tagList
      * @return
      */
     List<User> searchUserByTags(List<Tag> tagList);
+
 }

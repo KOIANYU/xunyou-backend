@@ -1,5 +1,7 @@
 server:
   port: 8080
+#  servlet:
+#    context-path: /api
 
 spring:
   application:
@@ -9,6 +11,9 @@ spring:
     url: jdbc:mysql://192.168.189.132:3306/db_xunyou
     username: root
     password: 123456
+  # session失效时间
+  session:
+    timeout: 86400
 
 mybatis-plus:
   configuration:

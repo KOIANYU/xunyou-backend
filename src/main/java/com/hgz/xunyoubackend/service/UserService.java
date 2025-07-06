@@ -13,8 +13,6 @@ import java.util.List;
 */
 public interface UserService extends IService<User> {
 
-
-
     /**
      * 用户注册
      *
@@ -50,6 +48,14 @@ public interface UserService extends IService<User> {
      * @return
      */
     List<User> searchUsers(String username);
+
+    /**
+     * 用户注销
+     *
+     * @param request
+     * @return
+     */
+    int userLogout(HttpServletRequest request);
 
     /**
      * 根据标签搜索用户

@@ -1,24 +1,24 @@
 package com.hgz.xunyoubackend.service.impl;
-import java.util.Collections;
-import java.util.Date;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.hgz.xunyoubackend.common.ErrorCode;
 import com.hgz.xunyoubackend.constant.UserConstant;
-import com.hgz.xunyoubackend.controller.UserController;
 import com.hgz.xunyoubackend.exception.BusinessException;
-import com.hgz.xunyoubackend.model.domain.Tag;
 import com.hgz.xunyoubackend.model.domain.User;
 import com.hgz.xunyoubackend.mapper.UserMapper;
 import com.hgz.xunyoubackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -160,6 +160,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         safeUser.setUserStatus(user.getUserStatus());
         safeUser.setCreateTime(user.getCreateTime());
         safeUser.setUserRole(user.getUserRole());
+        safeUser.setTags(user.getTags());
         //safeUser.setPlanetCode(user.getPlanetCode());
         return safeUser;
     }
@@ -194,12 +195,54 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     /**
      * 根据标签搜索用户
-     * @param tagList 用户要拥有的标签
+     *
+     * @param tagNameList 用户要拥有的标签
      * @return
      */
     @Override
-    public List<User> searchUserByTags(List<Tag> tagList) {
-        return null;
+    public List<User> searchUserByTags(List<String> tagNameList) {
+        if (CollectionUtils.isEmpty(tagNameList)) {
+            throw  new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        QueryWrapper<User> queryWrapper = new QueryWrapper();
+        List<User> userList = this.list(queryWrapper);
+
+        Gson gson = new Gson();
+        return userList.stream().filter(user -> {
+            if (StringUtils.isBlank(user.getTags())) {
+                return false;
+            }
+            String tagStr = user.getTags();
+            Set<String> tempTagNameSet = gson.fromJson(tagStr, new TypeToken<Set<String>>(){}.getType());
+            for (String tagName : tagNameList) {
+                if (!tempTagNameSet.contains(tagName)) {
+                    return false;
+                }
+            }
+            return true;
+        }).map(this::getSafeUser).collect(Collectors.toList());
+    }
+
+    /**
+     * 根据标签搜索用户 (通过SQL查询)
+     *
+     * @param tagNameList 用户要拥有的标签
+     * @return
+     */
+    @Deprecated
+    public List<User> searchUserByTagsBySQL(List<String> tagNameList) {
+        if (CollectionUtils.isEmpty(tagNameList)) {
+            throw  new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+
+        QueryWrapper<User> queryWrapper = new QueryWrapper();
+        for (String tagName : tagNameList) {
+            queryWrapper = queryWrapper.like("tags", tagName);
+        }
+        List<User> userList = this.list(queryWrapper);
+
+        return userList.stream().map(this::getSafeUser).collect(Collectors.toList());
     }
 
 }

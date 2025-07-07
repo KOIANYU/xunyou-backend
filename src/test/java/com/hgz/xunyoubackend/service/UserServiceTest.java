@@ -1,11 +1,14 @@
 package com.hgz.xunyoubackend.service;
 
 import com.hgz.xunyoubackend.model.domain.User;
+import org.junit.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import javax.annotation.Resource;
+import java.util.Arrays;
+import java.util.List;
 
 
 /**
@@ -76,5 +79,12 @@ class UserServiceTest {
         checkPassword = "12345678";
         result = userService.userRegister(userAccount, userPassword, checkPassword);
         Assertions.assertTrue(result > 0);
+    }
+
+    @Test
+    void searchUserByTags() {
+        List<String> tagNameList = Arrays.asList("Java", "编程");
+        List<User> users = userService.searchUserByTags(tagNameList);
+        Assert.assertNotNull(users);
     }
 }

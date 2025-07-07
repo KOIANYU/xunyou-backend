@@ -36,6 +36,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      */
     private static final String SALT = "KOIAN";
 
+    /**
+     * 特殊字符校验正则表达式
+     */
+    private static final String validPattern = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
+
 
     /**
      * 用户注册
@@ -57,7 +62,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码不能小于8位");
         }
         // 账户不能包含特殊字符
-        String validPattern = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
         Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
         if (matcher.find()) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户不能包含特殊字符");
@@ -109,7 +113,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码不能小于8位");
         }
         // 账户不能包含特殊字符
-        String validPattern = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
         Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
         if (matcher.find()) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户不能包含特殊字符");
@@ -205,9 +208,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw  new BusinessException(ErrorCode.PARAMS_ERROR);
         }
 
+        // 先获取所有用户信息
         QueryWrapper<User> queryWrapper = new QueryWrapper();
         List<User> userList = this.list(queryWrapper);
 
+        // 根据标签筛选用户信息
         Gson gson = new Gson();
         return userList.stream().filter(user -> {
             if (StringUtils.isBlank(user.getTags())) {

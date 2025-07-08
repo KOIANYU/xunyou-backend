@@ -1,5 +1,6 @@
 package com.hgz.xunyoubackend.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.hgz.xunyoubackend.common.BaseResponse;
 import com.hgz.xunyoubackend.common.ErrorCode;
 import com.hgz.xunyoubackend.common.Result;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 用户接口
@@ -70,16 +72,10 @@ public class UserController {
 
     @GetMapping("/current")
     public BaseResponse<User> getCurrentUser(HttpServletRequest request) {
-        // 获取用户登录态
-        Object userObject = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
-        User currentUser = (User) userObject;
-        if (currentUser == null) {
-            throw new BusinessException(ErrorCode.NULL_ERROR);
+        if (request == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
-        long userId = currentUser.getId();
-        // TODO 校验用户是否合法
-        User user = userService.getById(userId);
-        return Result.success(userService.getSafeUser(user));
+        return Result.success(userService.getCurrentUser(request));
     }
 
     @GetMapping("/search")
@@ -99,6 +95,22 @@ public class UserController {
         }
         List<User> userList = userService.searchUserByTags(tagNameList);
         return Result.success(userList);
+    }
+
+    @GetMapping("/recommend")
+    public BaseResponse<List<User>> recommendUsers(HttpServletRequest request) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        List<User> userList = userService.list(queryWrapper);
+        List<User> list = userList.stream().map(user -> userService.getSafeUser(user)).collect(Collectors.toList());
+        return Result.success(list);
+    }
+
+    @PostMapping("/update")
+    public BaseResponse<Integer> updateUser(@RequestBody User user, HttpServletRequest request) {
+        if (user == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        return Result.success(userService.updateUser(user, request));
     }
 
     @PostMapping("/delete")

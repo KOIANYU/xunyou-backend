@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +31,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService{
+
+    @Resource
+    private UserMapper userMapper;
 
     /**
      * 加密盐
@@ -228,6 +232,61 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
             return true;
         }).map(this::getSafeUser).collect(Collectors.toList());
+    }
+
+    /**
+     * 更新用户信息
+     *
+     * @param user
+     * @return
+     */
+    @Override
+    public int updateUser(User user, HttpServletRequest request) {
+        if (user == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        long userId = user.getId();
+        if (userId < 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User currentUser = (User)request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+        if (currentUser == null) {
+            throw new BusinessException(ErrorCode.NO_AUTH);
+        }
+        // 判断 更新信息的用户 和 登录用户 是否为同一个
+        if (userId != currentUser.getId()) {
+            throw new BusinessException(ErrorCode.NO_AUTH);
+        }
+        // 判断用户是否存在
+        User oldUser = this.getById(userId);
+        if (oldUser == null) {
+            throw new BusinessException(ErrorCode.NULL_ERROR);
+        }
+
+        return userMapper.updateById(user);
+    }
+
+    /**
+     * 获取当前登录用户信息
+     *
+     * @param request
+     * @return
+     */
+    @Override
+    public User getCurrentUser(HttpServletRequest request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        // 获取用户登录态
+        Object userObject = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
+        User currentUser = (User) userObject;
+        if (currentUser == null) {
+            throw new BusinessException(ErrorCode.NULL_ERROR);
+        }
+        long userId = currentUser.getId();
+        // TODO 校验用户是否合法
+        User user = this.getById(userId);
+        return this.getSafeUser(user);
     }
 
     /**

@@ -10,6 +10,7 @@ import com.hgz.xunyoubackend.model.request.UserLoginRequest;
 import com.hgz.xunyoubackend.model.request.UserRegisterRequest;
 import com.hgz.xunyoubackend.service.UserService;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -23,6 +24,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/user")
+@CrossOrigin
 public class UserController {
 
     @Resource
@@ -87,6 +89,15 @@ public class UserController {
             throw new BusinessException(ErrorCode.NO_AUTH);
         }
         List<User> userList = userService.searchUsers(username);
+        return Result.success(userList);
+    }
+
+    @GetMapping("/search/tags")
+    public BaseResponse<List<User>> searchUserByTags(@RequestParam(required = false) List<String> tagNameList) {
+        if (CollectionUtils.isEmpty(tagNameList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        List<User> userList = userService.searchUserByTags(tagNameList);
         return Result.success(userList);
     }
 

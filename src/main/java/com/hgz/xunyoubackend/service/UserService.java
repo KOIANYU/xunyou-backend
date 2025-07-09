@@ -1,5 +1,6 @@
 package com.hgz.xunyoubackend.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hgz.xunyoubackend.model.domain.Tag;
 import com.hgz.xunyoubackend.model.domain.User;
@@ -72,6 +73,28 @@ public interface UserService extends IService<User> {
      */
     int updateUser(User user, HttpServletRequest request);
 
+    /**
+     * 获取当前登录用户
+     *
+     * @param request
+     * @return
+     */
     User getCurrentUser(HttpServletRequest request);
+
+    /**
+     * 获取最近7天活跃用户id列表
+     *
+     * @return
+     */
+    List<Long> getActiveUserIdsLast7Days();
+
+    /**
+     * 推荐用户信息
+     * @param pagSize
+     * @param pagNum
+     * @param request
+     * @return
+     */
+    Page<User> recommendUsers(long pagSize, long pagNum, HttpServletRequest request);
 
 }

@@ -1,6 +1,7 @@
 package com.hgz.xunyoubackend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -12,14 +13,19 @@ import com.hgz.xunyoubackend.mapper.UserMapper;
 import com.hgz.xunyoubackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -34,6 +40,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Resource
     private UserMapper userMapper;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 加密盐
@@ -136,6 +145,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.EXECUTE_ERROR, "用户查询失败，账号或密码错误");
         }
 
+        // 更新最后登录时间
+        user.setLastLoginTime(new Date());
+        this.updateById(user);
+
         // 3. 用户脱敏
         User safeUser = getSafeUser(user);
 
@@ -169,6 +182,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         safeUser.setUserRole(user.getUserRole());
         safeUser.setTags(user.getTags());
         safeUser.setProfile(user.getProfile());
+        safeUser.setLastLoginTime(user.getLastLoginTime());
         //safeUser.setPlanetCode(user.getPlanetCode());
         return safeUser;
     }
@@ -284,10 +298,63 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.NULL_ERROR);
         }
         long userId = currentUser.getId();
-        // TODO 校验用户是否合法
+        // 需要从数据库中查询用户信息 因为session中的用户信息不一定是最新的
         User user = this.getById(userId);
         return this.getSafeUser(user);
     }
+
+    /**
+     * 获取首页推荐用户信息
+     *
+     * @param pagSize
+     * @param pagNum
+     * @param request
+     * @return
+     */
+    @Override
+    public Page<User> recommendUsers(long pagSize, long pagNum, HttpServletRequest request) {
+        // 获取当前用户
+        User user = this.getCurrentUser(request);
+        long userId = user.getId();
+
+        String redisKey = String.format("xunyou:user:recommend:%s:page%s", userId, pagNum);
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+
+        // 先从缓存中获取用户信息
+        Page<User> userPage = (Page<User>) valueOperations.get(redisKey);
+        if (userPage != null) {
+            return userPage;
+        }
+
+        // 缓存中不存在 则从数据库中获取
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        userPage = this.page(new Page<>(pagNum, pagSize), queryWrapper);
+
+        // 将数据写入缓存
+        // TODO 缓存穿透问题遗留 待解决
+        try {
+            valueOperations.set(redisKey, userPage, 10, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.error("redis set key error: ", e);
+        }
+
+        return userPage;
+    }
+
+    /**
+     * 获取最近7天活跃用户id
+     *
+     * @return
+     */
+    @Override
+    public List<Long> getActiveUserIdsLast7Days() {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        // 查询最近7天内登录过的用户
+        queryWrapper.ge("lastLoginTime", new Date(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000));
+        List<User> users = userMapper.selectList(queryWrapper);
+        return users.stream().map(User::getId).collect(Collectors.toList());
+    }
+
 
     /**
      * 根据标签搜索用户 (通过SQL查询)

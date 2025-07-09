@@ -6,6 +6,8 @@ import com.hgz.xunyoubackend.mapper.UserMapper;
 import com.hgz.xunyoubackend.model.domain.User;
 import com.hgz.xunyoubackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -31,10 +33,9 @@ public class PreCacheJob {
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
-    /**
-     * 先设置重点用户
-     */
-    //private List<Long> mainUserIdList = Arrays.asList(7L);
+    @Resource
+    private RedissonClient redissonClient;
+
 
     private int pageSize = 20;
 
@@ -46,28 +47,42 @@ public class PreCacheJob {
      */
     @Scheduled(cron = "0 59 23 * * ?")
     public void CacheRecommendUser() {
-        // 动态获取最近 7天 活跃用户 ID 列表
-        List<Long> activeUserIds = userService.getActiveUserIdsLast7Days();
+        RLock lock = redissonClient.getLock("xunyou:precachejob:cache:lock");
 
-        if (activeUserIds == null || activeUserIds.isEmpty()) {
-            log.warn("No active users found in the last 7 days.");
-            return;
-        }
+        try {
+            if (lock.tryLock(0, -1, TimeUnit.MILLISECONDS)) {
+                // 动态获取最近 7天 活跃用户 ID 列表
+                List<Long> activeUserIds = userService.getActiveUserIdsLast7Days();
 
-        for (Long userId : activeUserIds) {
-            ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
-            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-
-            // 预热所有页面
-            for (int pageNum = 1; pageNum <= totalPages; pageNum++) {
-                String redisKey = String.format("xunyou:user:recommend:%s:page%s", userId, pageNum);
-                Page<User> userPage = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
-
-                try {
-                    valueOperations.set(redisKey, userPage, 360, TimeUnit.MINUTES);
-                } catch (Exception e) {
-                    log.error("redis set key error: ", e);
+                if (activeUserIds == null || activeUserIds.isEmpty()) {
+                    log.warn("No active users found in the last 7 days.");
+                    return;
                 }
+
+                for (Long userId : activeUserIds) {
+                    ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+                    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+
+                    // 预热所有页面
+                    for (int pageNum = 1; pageNum <= totalPages; pageNum++) {
+                        String redisKey = String.format("xunyou:user:recommend:%s:page%s", userId, pageNum);
+                        Page<User> userPage = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
+
+                        try {
+                            valueOperations.set(redisKey, userPage, 360, TimeUnit.MINUTES);
+                        } catch (Exception e) {
+                            log.error("redis set key error: ", e);
+                        }
+                    }
+                }
+            }
+
+        } catch (InterruptedException e) {
+            log.error("CacheRecommendUser error: ", e);
+        } finally {
+            // 只有自己才能释放自己的锁
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
             }
         }
     }

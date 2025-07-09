@@ -95,6 +95,11 @@ public class User implements Serializable{
      */
     private String profile;
 
+    /**
+     * 用户上一次登录时间
+     */
+    private Date lastLoginTime;
+
     @TableField(exist = false)
     private static final long serialVersionUID = -4502379040021855906L;
 

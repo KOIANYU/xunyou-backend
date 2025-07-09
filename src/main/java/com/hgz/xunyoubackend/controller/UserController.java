@@ -99,10 +99,11 @@ public class UserController {
 
     @GetMapping("/recommend")
     public BaseResponse<Page<User>> recommendUsers(long pagSize, long pagNum, HttpServletRequest request) {
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        Page<User> userList = userService.page(new Page<>(pagNum, pagSize), queryWrapper);
+        //QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        //Page<User> userList = userService.page(new Page<>(pagNum, pagSize), queryWrapper);
         //List<User> list = userList.stream().map(user -> userService.getSafeUser(user)).collect(Collectors.toList());
-        return Result.success(userList);
+        Page<User> userPage = userService.recommendUsers(pagSize, pagNum, request);
+        return Result.success(userPage);
     }
 
     @PostMapping("/update")

@@ -295,7 +295,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Object userObject = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
         User currentUser = (User) userObject;
         if (currentUser == null) {
-            throw new BusinessException(ErrorCode.NULL_ERROR);
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
         }
         long userId = currentUser.getId();
         // 需要从数据库中查询用户信息 因为session中的用户信息不一定是最新的

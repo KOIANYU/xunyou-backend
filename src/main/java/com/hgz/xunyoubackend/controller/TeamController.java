@@ -10,6 +10,8 @@ import com.hgz.xunyoubackend.model.domain.Team;
 import com.hgz.xunyoubackend.model.domain.User;
 import com.hgz.xunyoubackend.model.dto.TeamQuery;
 import com.hgz.xunyoubackend.model.request.TeamAddRequest;
+import com.hgz.xunyoubackend.model.request.TeamUpdateRequest;
+import com.hgz.xunyoubackend.model.vo.TeamUserVo;
 import com.hgz.xunyoubackend.service.TeamService;
 import com.hgz.xunyoubackend.service.UserService;
 import org.springframework.beans.BeanUtils;
@@ -55,11 +57,12 @@ public class TeamController {
     }
 
     @PostMapping("/update")
-    public BaseResponse<Boolean> updateTeam(@RequestBody Team team) {
-        if (team == null) {
+    public BaseResponse<Boolean> updateTeam(@RequestBody TeamUpdateRequest teamUpdateRequest, HttpServletRequest request) {
+        if (teamUpdateRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        boolean result = teamService.updateById(team);
+        User currentUser = userService.getCurrentUser(request);
+        boolean result = teamService.updateTeam(teamUpdateRequest, currentUser);
         if (!result) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新失败");
         }
@@ -79,14 +82,12 @@ public class TeamController {
     }
 
     @GetMapping("/list")
-    public BaseResponse<List<Team>> listTeams(TeamQuery teamQuery) {
+    public BaseResponse<List<TeamUserVo>> searchTeams(TeamQuery teamQuery, HttpServletRequest request) {
         if (teamQuery == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        Team team = new Team();
-        BeanUtils.copyProperties(teamQuery, team);
-        QueryWrapper<Team> queryWrapper = new QueryWrapper<>(team);
-        List<Team> teamList = teamService.list(queryWrapper);
+        User currentUser = userService.getCurrentUser(request);
+        List<TeamUserVo> teamList = teamService.searchTeams(teamQuery, currentUser);
         return Result.success(teamList);
     }
 

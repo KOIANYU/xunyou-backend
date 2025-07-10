@@ -2,7 +2,6 @@ package com.hgz.xunyoubackend.job;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.hgz.xunyoubackend.mapper.UserMapper;
 import com.hgz.xunyoubackend.model.domain.User;
 import com.hgz.xunyoubackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +13,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -37,9 +35,9 @@ public class PreCacheJob {
     private RedissonClient redissonClient;
 
 
-    private int pageSize = 20;
+    private int pageSize = 12;
 
-    private int totalPages = 20;
+    private int totalPages = 5;
 
     /**
      * 方案一：缓存预热所有用户信息

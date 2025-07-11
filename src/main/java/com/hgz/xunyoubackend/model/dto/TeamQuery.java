@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.util.Date;
+import java.util.List;
 
 /**
  * 队伍查询封装类
@@ -18,8 +19,13 @@ public class TeamQuery extends PageRequest {
     /**
      * 队伍id
      */
-    @TableId(type = IdType.AUTO)
+
     private Long id;
+
+    /**
+     * id列表
+     */
+    private List<Long> teamIdList;
 
     /**
      * 队伍名称

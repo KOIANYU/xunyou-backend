@@ -11,9 +11,9 @@ spring:
     url: jdbc:mysql://192.168.189.132:3306/db_xunyou?serverTimezone=Asia/Shanghai
     username: root
     password: 123456
-  # session失效时间（分钟）
+  # session失效时间（秒）
   session:
-    timeout: 720
+    timeout: 21600
     store-type: redis
   mvc:
     pathmatch:

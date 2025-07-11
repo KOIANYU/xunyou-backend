@@ -10,6 +10,7 @@ import com.hgz.xunyoubackend.model.domain.Team;
 import com.hgz.xunyoubackend.model.domain.User;
 import com.hgz.xunyoubackend.model.dto.TeamQuery;
 import com.hgz.xunyoubackend.model.request.TeamAddRequest;
+import com.hgz.xunyoubackend.model.request.TeamJoinRequest;
 import com.hgz.xunyoubackend.model.request.TeamUpdateRequest;
 import com.hgz.xunyoubackend.model.vo.TeamUserVo;
 import com.hgz.xunyoubackend.service.TeamService;
@@ -102,6 +103,16 @@ public class TeamController {
         QueryWrapper<Team> queryWrapper = new QueryWrapper<>(team);
         Page<Team> teamPages = teamService.page(page, queryWrapper);
         return Result.success(teamPages);
+    }
+
+    @PostMapping("/join")
+    public BaseResponse<Boolean> joinTeam(@RequestBody TeamJoinRequest teamJoinRequest, HttpServletRequest request) {
+        if (teamJoinRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User currentUser = userService.getCurrentUser(request);
+        boolean result = teamService.joinTeam(teamJoinRequest, currentUser);
+        return Result.success(result);
     }
 
 }

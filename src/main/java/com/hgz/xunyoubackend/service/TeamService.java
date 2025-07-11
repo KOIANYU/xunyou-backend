@@ -5,6 +5,7 @@ import com.hgz.xunyoubackend.model.domain.Team;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hgz.xunyoubackend.model.domain.User;
 import com.hgz.xunyoubackend.model.dto.TeamQuery;
+import com.hgz.xunyoubackend.model.request.TeamJoinRequest;
 import com.hgz.xunyoubackend.model.request.TeamUpdateRequest;
 import com.hgz.xunyoubackend.model.vo.TeamUserVo;
 
@@ -37,4 +38,12 @@ public interface TeamService extends IService<Team> {
      * @return
      */
     boolean updateTeam(TeamUpdateRequest teamUpdateRequest, User currentUser);
+
+    /**
+     * 加入队伍
+     * @param teamJoinRequest
+     * @param currentUser
+     * @return
+     */
+    boolean joinTeam(TeamJoinRequest teamJoinRequest, User currentUser);
 }

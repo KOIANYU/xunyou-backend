@@ -2,6 +2,7 @@ package com.hgz.xunyoubackend.service.impl;
 import java.util.Date;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hgz.xunyoubackend.common.ErrorCode;
 import com.hgz.xunyoubackend.constant.TeamStatusEnum;
@@ -21,12 +22,16 @@ import com.hgz.xunyoubackend.service.UserService;
 import com.hgz.xunyoubackend.service.UserTeamService;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
 * @author hgz
@@ -43,6 +48,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private RedissonClient redissonClient;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -130,6 +138,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
                 queryWrapper.eq("id", id);
             }
 
+            // 根据 队伍id列表查询
             List<Long> idList = teamQuery.getTeamIdList();
             if (CollectionUtils.isNotEmpty(idList)) {
                 queryWrapper.in("id", idList);
@@ -176,23 +185,29 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
             return new ArrayList<>();
         }
         List<TeamUserVo> teamUserVoList = new ArrayList<>();
-        // 关联查询 创建人用户信息
+        // 遍历根据条件获取到的所有队伍信息
         for (Team team : teamList) {
+            // 根据id查询队伍创建人信息
             Long creatorId = team.getCreatorId();
             if (creatorId == null) {
                 continue;
             }
-            // 查询用户信息 并且脱敏
             User user = userService.getById(creatorId);
-            TeamUserVo teamUserVo = new TeamUserVo();
-            BeanUtils.copyProperties(team, teamUserVo);
 
+            // 创建人信息脱敏
             UserVO userVO = new UserVO();
             if (user != null) {
                 BeanUtils.copyProperties(user, userVO);
             }
+
+            // 队伍信息脱敏
+            TeamUserVo teamUserVo = new TeamUserVo();
+            BeanUtils.copyProperties(team, teamUserVo);
+
+            // 将创建人信息封装在队伍信息中
             teamUserVo.setCreateUser(userVO);
 
+            // 队伍信息列表添加队伍信息
             teamUserVoList.add(teamUserVo);
         }
 
@@ -255,37 +270,54 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team> implements Te
 
         // 2. 查询该用户加入的队伍数量
         long userId = currentUser.getId();
-        QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
-        userTeamQueryWrapper.eq("userId", userId);
-        // 在用户队伍关系表中查询队伍数量
-        long hasJoinNum = userTeamService.count(userTeamQueryWrapper);
-        if (hasJoinNum > 5) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "最多加入5个队伍");
+
+        // 获取分布式锁 只有一个线程能获取到锁
+        RLock lock = redissonClient.getLock("xunyou:join_team:lock");
+
+        try {
+            if (lock.tryLock(0, -1, TimeUnit.MILLISECONDS)) {
+                QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
+                userTeamQueryWrapper.eq("userId", userId);
+                // 在用户队伍关系表中查询队伍数量
+                long hasJoinNum = userTeamService.count(userTeamQueryWrapper);
+                if (hasJoinNum > 5) {
+                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "最多加入5个队伍");
+                }
+
+                // 不能重复加入已加入的队伍
+                userTeamQueryWrapper = new QueryWrapper<>();
+                userTeamQueryWrapper.eq("userId", userId);
+                userTeamQueryWrapper.eq("teamId", teamId);
+                long hasUserJoinTeam = userTeamService.count(userTeamQueryWrapper);
+                if (hasUserJoinTeam > 0) {
+                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户已加入该队伍");
+                }
+
+                // 3. 只能加入人数未满的队伍 在用户队伍关系表中 查询该队伍的当前人数
+                long teamHasJoinNum = getTeamHasJoinNum(teamId);
+                if (teamHasJoinNum >= team.getMaxNum()) {
+                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍已满");
+                }
+
+                // 增加用户和队伍的关联信息
+                UserTeam userTeam = new UserTeam();
+                userTeam.setUserId(userId);
+                userTeam.setTeamId(teamId);
+                userTeam.setJoinTime(new Date());
+                boolean result = userTeamService.save(userTeam);
+
+                return result;
+            }
+
+        } catch (InterruptedException e) {
+            log.error("joinTeam error: ", e);
+        } finally {
+            // 只有自己才能释放自己的锁
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
         }
-
-        // 不能重复加入已加入的队伍
-        userTeamQueryWrapper = new QueryWrapper<>();
-        userTeamQueryWrapper.eq("userId", userId);
-        userTeamQueryWrapper.eq("teamId", teamId);
-        long hasUserJoinTeam = userTeamService.count(userTeamQueryWrapper);
-        if (hasUserJoinTeam > 0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户已加入该队伍");
-        }
-
-        // 3. 只能加入人数未满的队伍 在用户队伍关系表中 查询该队伍的当前人数
-        long teamHasJoinNum = getTeamHasJoinNum(teamId);
-        if (teamHasJoinNum >= team.getMaxNum()) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍已满");
-        }
-
-        // 增加用户和队伍的关联信息
-        UserTeam userTeam = new UserTeam();
-        userTeam.setUserId(userId);
-        userTeam.setTeamId(teamId);
-        userTeam.setJoinTime(new Date());
-        boolean result = userTeamService.save(userTeam);
-
-        return result;
+        return false;
     }
 
 

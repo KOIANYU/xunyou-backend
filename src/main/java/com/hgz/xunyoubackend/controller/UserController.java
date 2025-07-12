@@ -10,6 +10,7 @@ import com.hgz.xunyoubackend.exception.BusinessException;
 import com.hgz.xunyoubackend.model.domain.User;
 import com.hgz.xunyoubackend.model.request.UserLoginRequest;
 import com.hgz.xunyoubackend.model.request.UserRegisterRequest;
+import com.hgz.xunyoubackend.model.vo.UserVO;
 import com.hgz.xunyoubackend.service.UserService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.util.CollectionUtils;
@@ -137,6 +138,15 @@ public class UserController {
         Object userObject = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATE);
         User user = (User) userObject;
         return user != null && user.getUserRole() == UserConstant.ADMIN_ROLE;
+    }
+
+    @GetMapping("/match")
+    public BaseResponse<List<User>> matchUsers(long num, HttpServletRequest request) {
+        if (num <= 0 || num > 20) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User currentUser = userService.getCurrentUser(request);
+        return Result.success(userService.matchUsers(num, currentUser));
     }
 
 

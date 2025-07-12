@@ -11,8 +11,10 @@ import com.hgz.xunyoubackend.exception.BusinessException;
 import com.hgz.xunyoubackend.model.domain.User;
 import com.hgz.xunyoubackend.mapper.UserMapper;
 import com.hgz.xunyoubackend.service.UserService;
+import com.hgz.xunyoubackend.utils.AlgorithmUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.math3.util.Pair;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
@@ -21,10 +23,7 @@ import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -333,12 +332,69 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 将数据写入缓存
         // TODO 缓存穿透问题遗留 待解决
         try {
-            valueOperations.set(redisKey, userPage, 10, TimeUnit.MINUTES);
+            valueOperations.set(redisKey, userPage, 30, TimeUnit.MINUTES);
         } catch (Exception e) {
             log.error("redis set key error: ", e);
         }
 
         return userPage;
+    }
+
+    @Override
+    public List<User> matchUsers(long num, User currentUser) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        // 只差需要的信息 用户id 和 标签 节省性能
+        queryWrapper.select("id", "tags");
+        // 过滤 标签 为空的用户
+        queryWrapper.isNotNull("tags");
+        List<User> userList = this.list(queryWrapper);
+
+        // 获取当前登录用户的标签
+        String tags = currentUser.getTags();
+        Gson gson = new Gson();
+        // 解析用户标签 将 从数据库获取到的 [\"Java\",\"Python\",\"前端\"] Json字符串 转成 ["Java", "Python", "前端"] 的java对象
+        List<String> tagList = gson.fromJson(tags, new TypeToken<List<String>>() {}.getType());
+
+        // 用户列表的下标 => 相似度 Pair: key-value
+        List<Pair<User, Long>> list = new ArrayList<>();
+        // 依次计算 所有用户 和 当前用户 的相似度
+        for (int i = 0; i < userList.size(); i++) {
+            User user = userList.get(i);
+            String userTags = user.getTags();
+            // 过滤 无标签 或者 当前用户自己
+            if (StringUtils.isBlank(userTags) || user.getId() == currentUser.getId()) {
+                continue;
+            }
+            List<String> userTagList = gson.fromJson(userTags, new TypeToken<List<String>>() {}.getType());
+
+            // 距离算法计算分数
+            long distance = AlgorithmUtils.minDistanceByTags(tagList, userTagList);
+            list.add(new Pair<>(user, distance));
+        }
+
+        // 按编辑距离由小到大排序 提取前 num 个用户信息
+        List<Pair<User, Long>> topUserPairList = list.stream()
+                .sorted((a, b) -> (int) (a.getValue() - b.getValue()))
+                .limit(num)
+                .collect(Collectors.toList());
+
+        // 筛选过后的 userId 列表
+        List<Long> userIdList = topUserPairList.stream().map(pair -> pair.getKey().getId()).collect(Collectors.toList());
+
+        // 上面查询到的用户信息只有 id 和 tags 所以经过筛选后 再查一次获取完整的用户信息
+        QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
+        userQueryWrapper.in("id", userIdList);
+        Map<Long, List<User>> userIdUserListMap = this.list(userQueryWrapper)
+                .stream()
+                .map(user -> getSafeUser(user))
+                .collect(Collectors.groupingBy(User::getId));
+
+        List<User> finalUserList = new ArrayList<>();
+        for (Long userId : userIdList) {
+            finalUserList.add(userIdUserListMap.get(userId).get(0));
+        }
+
+        return finalUserList;
     }
 
     /**

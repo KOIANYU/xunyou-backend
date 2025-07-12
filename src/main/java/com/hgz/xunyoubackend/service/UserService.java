@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hgz.xunyoubackend.model.domain.Tag;
 import com.hgz.xunyoubackend.model.domain.User;
+import com.hgz.xunyoubackend.model.vo.UserVO;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -97,4 +98,11 @@ public interface UserService extends IService<User> {
      */
     Page<User> recommendUsers(long pagSize, long pagNum, HttpServletRequest request);
 
+    /**
+     * 匹配用户
+     * @param num
+     * @param currentUser
+     * @return
+     */
+    List<User> matchUsers(long num, User currentUser);
 }
